@@ -131,6 +131,27 @@ module {
   // };
 
   
+  // Tokenization
+  public type Token = {
+    tokenId : Text;
+    farmId : Text;
+    owner : Principal;
+    createdAt : Int;
+  };
 
+  public type TokenHolder = {
+    owner : Principal;
+    farmId : Text;
+    amount : Nat;
+  };
+
+  public type Transaction = {
+    transactionId : Text;
+    from : Principal;
+    to : Principal;
+    farmId : Text;
+    amount : Nat;
+    timestamp : Int;
+  };
  
 }

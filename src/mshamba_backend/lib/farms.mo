@@ -6,6 +6,7 @@ import Iter "mo:base/Iter";
 import Array "mo:base/Array";
 import Types "types";
 import Utils "utils";
+import Token "token";
 
 module {
   public type Farm = Types.Farm;
@@ -90,12 +91,41 @@ module {
     )
   };
 
+  // Tokenize a farm
+  public func tokenizeFarm(
+    farmId: Text,
+    farms: HashMap.HashMap<Text, Farm>,
+    ledger: HashMap.HashMap<Text, Types.TokenHolder>,
+    history: HashMap.HashMap<Text, Types.Transaction>
+  ) : Result<Types.Token> {
+    switch (farms.get(farmId)) {
+      case (?farm) {
+        let tokenId = "token-" # farmId;
+        let token: Types.Token = {
+          tokenId = tokenId;
+          farmId = farmId;
+          owner = farm.owner;
+          createdAt = Time.now();
+        };
+
+        let result = Token.mintTokens(farmId, farm.totalShares, farm.owner, ledger);
+        switch (result) {
+          case (#ok) { #ok(token) };
+          case (#err(msg)) { #err(msg) };
+        }
+      };
+      case null { #err("Farm not found") };
+    }
+  };
+
   // Invest in a farm
   public func investInFarm(
     caller: Principal,
     farmId: Text,
     amount: Nat,
-    farms: HashMap.HashMap<Text, Farm>
+    farms: HashMap.HashMap<Text, Farm>,
+    ledger: HashMap.HashMap<Text, Types.TokenHolder>,
+    history: HashMap.HashMap<Text, Types.Transaction>
   ) : Result<Farm> {
     switch (farms.get(farmId)) {
       case (?farm) {
@@ -107,28 +137,43 @@ module {
           return #err("This farm is not accepting funds at this time");
         };
 
-        let updatedFunded = farm.fundedAmount + amount;
+        let sharesToReceive = amount / farm.sharePrice;
+        let result = Token.transferTokens(farm.owner, caller, farmId, sharesToReceive, ledger, history);
+        switch (result) {
+          case (#ok) {
+            let updatedFunded = farm.fundedAmount + amount;
 
-        let updatedFarm = {
-          farm with
-          fundedAmount = updatedFunded;
-          investors = Array.append(farm.investors, [caller])
-        };
+            let updatedFarm = {
+              farm with
+              fundedAmount = updatedFunded;
+              investors = Array.append(farm.investors, [caller])
+            };
 
-        let finalFarm = if (updatedFunded >= farm.fundingGoal) {
-          {
-            updatedFarm with
-            isOpenForInvestment = false;
-            status = #Funded;
-          }
-        } else {
-          updatedFarm
-        };
+            let finalFarm = if (updatedFunded >= farm.fundingGoal) {
+              {
+                updatedFarm with
+                isOpenForInvestment = false;
+                status = #Funded;
+              }
+            } else {
+              updatedFarm
+            };
 
-        farms.put(farmId, finalFarm);
-        #ok(finalFarm)
+            farms.put(farmId, finalFarm);
+            #ok(finalFarm)
+          };
+          case (#err(msg)) { #err(msg) };
+        }
       };
       case null { #err("Farm not found") };
     }
+  };
+
+  // Get token holders for a farm
+  public func getTokenHolders(
+    farmId: Text,
+    ledger: HashMap.HashMap<Text, Types.TokenHolder>
+  ) : [Types.TokenHolder] {
+    Token.getTokenHolders(farmId, ledger)
   };
 };

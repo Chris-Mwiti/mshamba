@@ -25,7 +25,8 @@ actor Mshamba {
   var farmStore = Farms.newFarmStore();
   var profileStore = Profiles.newProfileStore();
   var landStore = Land.newLandStore();
-  var tokenLedger = Token.newLedger();
+  var tokenLedger = Token.newTokenLedger();
+  var transactionHistory = Token.newTransactionHistory();
   var investments = Investments.newInvestmentStore();
   var investorIndex = Investments.newInvestorIndex();
 
@@ -99,7 +100,15 @@ actor Mshamba {
     farmId: Text,
     amount: Nat
   ) : async Utils.Result<Types.Farm> {
-    Farms.investInFarm(caller, farmId, amount, farmStore)
+    Farms.investInFarm(caller, farmId, amount, farmStore, tokenLedger, transactionHistory)
+  };
+
+  public shared ({ caller }) func tokenizeFarm(farmId: Text) : async Utils.Result<Types.Token> {
+    Farms.tokenizeFarm(farmId, farmStore, tokenLedger, transactionHistory)
+  };
+
+  public query func getTokenHolders(farmId: Text) : async [Types.TokenHolder] {
+    Farms.getTokenHolders(farmId, tokenLedger)
   };
 
   // ------ LAND ------
